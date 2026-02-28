@@ -7,13 +7,17 @@ const TextVerifier = () => {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const analyzeWithRetry = async (retries = 3) => {
+  const analyzeText = async () => {
+    if (!text.trim()) return alert("Please enter some text.");
+    setIsLoading(true);
+    setResult(null);
+
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/Hello-SimpleAI/chatgpt-detector-roberta",
         {
           headers: { 
-            Authorization: `Bearer ${import.meta.env.VITE_HF_TOKEN}`,
+            "Authorization": `Bearer ${import.meta.env.VITE_HF_TOKEN}`,
             "Content-Type": "application/json",
           },
           method: "POST",
@@ -23,43 +27,29 @@ const TextVerifier = () => {
 
       const data = await response.json();
 
-      // Agar model load ho raha hai (Retry logic)
-      if (data.error && data.error.includes("loading") && retries > 0) {
-        console.log("Model loading... retrying in 5s");
-        await new Promise(res => setTimeout(res, 5000));
-        return analyzeWithRetry(retries - 1);
+      // Agar model load ho raha ho (Free tier common issue)
+      if (data.error && data.error.includes("loading")) {
+        alert("Model is waking up! Please wait 10 seconds and try again.");
+        setIsLoading(false);
+        return;
       }
 
-      return data;
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  const handleScan = async () => {
-    if (!text.trim()) return alert("Please enter text.");
-    setIsLoading(true);
-    setResult(null);
-
-    try {
-      const resultData = await analyzeWithRetry();
-      
-      if (resultData && resultData[0]) {
-        const aiScoreObj = resultData[0].find(item => item.label === 'Fake' || item.label === 'Label_1');
+      if (data && data[0]) {
+        const aiScoreObj = data[0].find(item => item.label === 'Fake' || item.label === 'Label_1');
         const finalPercentage = Math.round(aiScoreObj.score * 100);
-        const isAI = finalPercentage > 50;
-
+        
         setResult({
           score: finalPercentage,
-          isAi: isAI,
-          status: isAI ? "AI GENERATED" : "HUMAN AUTHENTIC",
-          markers: isAI ? ["Neural Pattern Detected", "Uniform Syntax"] : ["Natural Flow", "Human Variance"]
+          isAi: finalPercentage > 50,
+          status: finalPercentage > 50 ? "AI GENERATED" : "HUMAN AUTHENTIC",
+          markers: finalPercentage > 50 
+            ? ["Neural Pattern Found", "Uniform Syntax"] 
+            : ["Natural Flow", "Human Variance"]
         });
-      } else {
-        alert("API is busy. Please wait 10 seconds and try again.");
       }
     } catch (error) {
-      alert("Network Error! Please refresh.");
+      console.error(error);
+      alert("Network Error! Check your internet or wait 10 seconds.");
     } finally {
       setIsLoading(false);
     }
@@ -68,22 +58,22 @@ const TextVerifier = () => {
   return (
     <div className="w-full grid grid-cols-1 xl:grid-cols-4 gap-8 font-sans bg-black p-4 min-h-screen text-white">
       <div className="xl:col-span-3 space-y-6">
-        <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 p-2">
+        <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 p-2 shadow-2xl">
           <textarea
             className="w-full h-80 md:h-[480px] bg-transparent p-10 text-xl md:text-2xl outline-none placeholder:text-slate-700 leading-relaxed resize-none text-cyan-400"
-            placeholder="PASTE TEXT FOR SCANNIG..."
+            placeholder="PASTE TEXT FOR NEURAL SCAN..."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
         </div>
         
         <button
-          onClick={handleScan}
+          onClick={analyzeText}
           disabled={isLoading}
-          className="w-full py-8 bg-cyan-400 text-black rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 transition-all shadow-[0_0_20px_rgba(34,211,238,0.5)] active:scale-95"
+          className="w-full py-8 bg-cyan-400 text-black rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 hover:bg-white transition-all shadow-[0_0_30px_rgba(34,211,238,0.3)] active:scale-95"
         >
           {isLoading ? <Loader2 className="animate-spin" /> : <Zap size={24} fill="currentColor" />}
-          {isLoading ? "CONNECTING TO NEURAL NETWORK..." : "INITIATE SCAN"}
+          {isLoading ? "SCANNING NEURAL PATHWAYS..." : "INITIATE FORENSIC SCAN"}
         </button>
       </div>
 
