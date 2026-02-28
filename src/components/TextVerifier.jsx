@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from "framer-motion";
-import { Zap, Loader2, CheckCircle2, ShieldAlert } from "lucide-react";
+import { Zap, Loader2, CheckCircle2 } from "lucide-react";
 
 const TextVerifier = () => {
   const [text, setText] = useState('');
@@ -20,7 +20,10 @@ const TextVerifier = () => {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/Hello-SimpleAI/chatgpt-detector-roberta",
         {
-          headers: { Authorization: `Bearer ${import.meta.env.VITE_HF_TOKEN}` },
+          headers: { 
+            Authorization: `Bearer ${import.meta.env.VITE_HF_TOKEN}`,
+            "Content-Type": "application/json",
+          },
           method: "POST",
           body: JSON.stringify({ inputs: text }),
         }
@@ -28,86 +31,75 @@ const TextVerifier = () => {
 
       const resultData = await response.json();
       
-      // Model response se AI score nikalna
-      const aiScoreObj = resultData[0].find(item => item.label === 'Fake' || item.label === 'Label_1');
-      const finalPercentage = Math.round(aiScoreObj.score * 100);
-      const isAI = finalPercentage > 50;
+      // Agar model load ho raha hai (free tier behavior)
+      if (resultData.error && resultData.error.includes("loading")) {
+        alert("Model is warming up. Wait 10 seconds and try again!");
+        setIsLoading(false);
+        return;
+      }
 
-      setResult({
-        score: finalPercentage,
-        isAi: isAI,
-        status: isAI ? "AI GENERATED" : "HUMAN AUTHENTIC",
-        markers: isAI 
-          ? ["Neural Pattern Detected", "Uniform Syntax Found", "AI Linguistic Signature"]
-          : ["Natural Narrative Flow", "Complex Sentence Rhythms", "Human Variance"]
-      });
+      if (resultData && Array.isArray(resultData) && resultData[0]) {
+        const aiScoreObj = resultData[0].find(item => item.label === 'Fake' || item.label === 'Label_1');
+        const finalPercentage = Math.round(aiScoreObj.score * 100);
+        const isAI = finalPercentage > 50;
+
+        setResult({
+          score: finalPercentage,
+          isAi: isAI,
+          status: isAI ? "AI GENERATED" : "HUMAN AUTHENTIC",
+          markers: isAI 
+            ? ["Neural Pattern Detected", "Uniform Syntax", "AI Signature"]
+            : ["Natural Flow", "Human Sentence Rhythms", "High Variance"]
+        });
+      }
     } catch (error) {
-      console.error("Error:", error);
-      alert("API Error! Please refresh or check your Netlify Token.");
+      console.error("API Error:", error);
+      alert("API is busy. Please try again in a few seconds!");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="w-full grid grid-cols-1 xl:grid-cols-4 gap-8 font-sans">
+    <div className="w-full grid grid-cols-1 xl:grid-cols-4 gap-8 font-sans bg-black p-4 min-h-screen text-white">
       <div className="xl:col-span-3 space-y-6">
-        <div className="relative group overflow-hidden rounded-[2.5rem] border border-white/10 bg-black/20 backdrop-blur-3xl shadow-2xl transition-all hover:border-cyan-500/40">
+        <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 backdrop-blur-3xl p-2">
           <textarea
-            className="w-full h-80 md:h-[480px] bg-transparent p-10 text-xl md:text-2xl font-medium outline-none placeholder:text-slate-700 leading-relaxed resize-none text-cyan-50/90"
-            placeholder="PASTE TEXT CONTENT FOR NEURAL PATTERN SCANNING..."
+            className="w-full h-80 md:h-[480px] bg-transparent p-10 text-xl md:text-2xl font-medium outline-none placeholder:text-slate-700 leading-relaxed resize-none text-cyan-400"
+            placeholder="PASTE TEXT FOR SCANNIG..."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          {isLoading && (
-            <motion.div
-              initial={{ left: "-100%" }}
-              animate={{ left: "100%" }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="absolute top-0 h-[2px] w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_cyan] z-20"
-            />
-          )}
         </div>
         
         <button
           onClick={analyzeText}
           disabled={isLoading}
-          className="w-full py-8 bg-white text-black rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 transition-all hover:bg-cyan-400 active:scale-95 disabled:opacity-20 shadow-xl"
+          className="w-full py-8 bg-cyan-400 text-black rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 hover:bg-white transition-all shadow-[0_0_20px_rgba(34,211,238,0.5)]"
         >
           {isLoading ? <Loader2 className="animate-spin" /> : <Zap size={24} fill="currentColor" />}
-          {isLoading ? "DECRYPTING SYNTAX..." : "INITIATE FORENSIC SCAN"}
+          {isLoading ? "DECRYPTING..." : "INITIATE SCAN"}
         </button>
       </div>
 
       <div className="xl:col-span-1 space-y-4">
-        {/* Result Card */}
-        <div className={`p-8 rounded-[2.5rem] bg-white/[0.02] border ${result ? (result.isAi ? 'border-red-500/40' : 'border-green-500/40') : 'border-white/5'} backdrop-blur-xl`}>
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">AI PROBABILITY</div>
-          <div className={`text-6xl font-black tracking-tighter ${result ? (result.isAi ? 'text-red-500' : 'text-green-500') : 'text-slate-800'}`}>
+        <div className={`p-8 rounded-[2.5rem] bg-white/5 border ${result ? (result.isAi ? 'border-red-500' : 'border-green-500') : 'border-white/10'}`}>
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest">AI PROBABILITY</div>
+          <div className="text-6xl font-black mt-2">
             {result ? `${result.score}%` : "00%"}
           </div>
-          {result && (
-            <div className={`mt-4 text-[10px] font-bold uppercase tracking-tighter ${result.isAi ? 'text-red-400' : 'text-green-400'}`}>
-               Result: {result.status}
-            </div>
-          )}
         </div>
-
-        {/* Markers Card */}
-        <div className="p-8 bg-white/[0.03] border border-white/5 rounded-[2.5rem] backdrop-blur-2xl">
-           <h4 className="text-[10px] font-black text-slate-500 uppercase mb-5 tracking-[0.2em]">Linguistic Analysis</h4>
-           <div className="space-y-4">
-              {result ? result.markers.map(m => (
-                <div key={m} className="flex items-center gap-3 text-[11px] font-bold text-cyan-400/80 uppercase">
-                  <CheckCircle2 size={14} className="text-cyan-500" /> {m}
-                </div>
-              )) : (
-                <div className="py-10 text-center opacity-20 text-[10px] font-bold uppercase tracking-widest">
-                  System Idle
-                </div>
-              )}
-           </div>
-        </div>
+        
+        {result && (
+          <div className="p-8 bg-white/5 rounded-[2.5rem] border border-white/10">
+            <h4 className="text-[10px] text-slate-500 uppercase mb-4">Markers Found</h4>
+            {result.markers.map(m => (
+              <div key={m} className="flex items-center gap-2 text-cyan-400 text-xs mb-2">
+                <CheckCircle2 size={14} /> {m}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
