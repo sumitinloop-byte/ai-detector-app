@@ -11,17 +11,15 @@ export default function ImageVerifier() {
   const [showCamera, setShowCamera] = useState(false);
   const webcamRef = useRef(null);
 
-  // --- 1. Live Camera Capture ---
   const capture = useCallback(() => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       setImage(imageSrc);
       setShowCamera(false);
-      processImage(imageSrc, "live_hardware_capture.jpg", true);
+      processImage(imageSrc, "live_capture.jpg", true);
     }
   }, [webcamRef]);
 
-  // --- 2. Media Upload Logic ---
   const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -30,26 +28,20 @@ export default function ImageVerifier() {
     const reader = new FileReader();
     reader.onload = (f) => {
       setImage(f.target.result);
-      // Google Reverse Indexing simulation delay (2.5 seconds)
       setTimeout(() => processImage(f.target.result, file.name, false), 2500);
     };
     reader.readAsDataURL(file);
   };
 
-  // --- 3. Forensic Engine with Google Reverse Trace ---
   const processImage = (imageSrc, fileName, isLive) => {
     const img = new Image();
     img.src = imageSrc;
     img.onload = function() {
       EXIF.getData(img, function() {
         const tags = EXIF.getAllTags(this) || {};
-        const name = fileName.toLowerCase();
-        
         const hasCamera = !!tags.Model;
         const software = (tags.Software || "").toLowerCase();
         const isEdited = software.match(/adobe|photoshop|canva|picsart|edit|midjourney|dalle/);
-        
-        // Simulation: Agar photo live nahi hai aur metadata missing hai, toh Google Reverse use "Flag" karega
         const googleReverseFound = !isLive && (!hasCamera || isEdited); 
 
         let status = "VERIFIED";
@@ -90,14 +82,14 @@ export default function ImageVerifier() {
         setScanning(false);
       });
     };
+    // Safety switch to stop loader
+    setTimeout(() => setScanning(false), 6000);
   };
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
-      {/* Main Scanner View */}
       <div className="lg:col-span-3">
         <div className="relative h-[500px] w-full bg-[#080808] border border-white/10 rounded-[3rem] overflow-hidden flex flex-col items-center justify-center shadow-2xl transition-all hover:border-cyan-500/30 group">
-          
           {showCamera ? (
             <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
               <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" className="h-full w-full object-cover" />
@@ -121,7 +113,6 @@ export default function ImageVerifier() {
               </label>
             </div>
           )}
-
           {scanning && (
             <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center z-40">
               <motion.div animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-full h-[2px] bg-cyan-400 absolute shadow-[0_0_20px_cyan]" />
@@ -130,13 +121,10 @@ export default function ImageVerifier() {
           )}
         </div>
       </div>
-
-      {/* Side Results Panel */}
       <div className="lg:col-span-1 space-y-4">
         <ResultTile label={data?.isLive ? "HARDWARE STATUS" : "GOOGLE REVERSE TRACE"} val={data?.device} />
         <ResultTile label="SOURCE ORIGIN" val={data?.origin} />
         <ResultTile label="INTEGRITY SCORE" val={data?.authenticity || "00.0%"} />
-        
         <div className={`p-8 rounded-[2.5rem] flex flex-col items-center justify-center font-black transition-all duration-700 ${data ? (data.status === 'VERIFIED' ? 'bg-cyan-400 text-black shadow-[0_0_30px_rgba(6,182,212,0.3)]' : 'bg-red-600 text-white shadow-[0_0_40px_rgba(220,38,38,0.3)]') : 'bg-white/5 opacity-10'}`}>
           <span className="text-xl uppercase tracking-tighter">{data?.status || "WAITING"}</span>
           <p className="text-[7px] mt-1 opacity-80 text-center uppercase leading-tight font-bold">{data?.reason || "Awaiting Input"}</p>
